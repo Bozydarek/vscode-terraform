@@ -3,13 +3,13 @@
 //
 
 const gulp = require('gulp');
-const mkdirp = require('mkdirp');
 const path = require('path');
 const log = require('fancy-log');
 const download = require("./download");
 const decompress = require('gulp-decompress');
 const merge = require('gulp-merge-json');
 const transform = require('gulp-json-transform');
+const fs = require('fs');
 
 gulp.task('get-vim-terraform-completion-data', () => {
   const url = 'https://github.com/juliosueiras/vim-terraform-completion/archive/master.zip';
@@ -24,6 +24,15 @@ gulp.task('copy-provider-data', gulp.series('get-vim-terraform-completion-data',
     'out/tmp/vim-terraform-completion/vim-terraform-completion-master/community_provider_json/**/*.json',
     'out/tmp/vim-terraform-completion/vim-terraform-completion-master/provider_json/**/*.json'
   ])
+    .pipe(transform((data, file) => {
+      if (file.path.indexOf("community_provider_json") !== -1) {
+        data.__meta = { type: "community_provider" };
+      } else {
+        data.__meta = { type: "provider" };
+      }
+
+      return data;
+    }))
     .pipe(gulp.dest('out/src/data/providers'));
 }));
 
@@ -43,7 +52,8 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
               [providerVersion]: {
                 path: path.relative(file.base, file.path)
               }
-            }
+            },
+            meta: json.__meta
           }
         };
 
