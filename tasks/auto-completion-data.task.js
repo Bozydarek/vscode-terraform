@@ -85,18 +85,20 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
         const providerVersion = dirSegments[dirSegments.length - 1];
 
         var result = {
-          [providerName]: {
-            versions: {
-              [providerVersion]: {
-                path: path.relative(file.base, file.path)
-              }
-            },
-            meta: json.__meta
+          providers: {
+            [providerName]: {
+              versions: {
+                [providerVersion]: {
+                  path: path.relative(file.base, file.path)
+                }
+              },
+              meta: json.__meta
+            }
           }
         };
 
         for (const group of ['resources', 'datas', 'unknowns']) {
-          result[providerName].versions[providerVersion][group] = Object.keys(json[group] || {});
+          result.providers[providerName].versions[providerVersion][group] = Object.keys(json[group] || {});
         }
 
         return result;
@@ -106,15 +108,15 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
       // jshint loopfunc: true
 
       var all = { resources: {}, datas: {}, unknowns: {} };
-      const providers = Object.keys(data);
+      const providers = Object.keys(data.providers);
       for (const provider of providers) {
         // 1. mark the latest version for quicker lookup
 
-        const versions = Object.keys(data[provider].versions);
+        const versions = Object.keys(data.providers[provider].versions);
         if (versions.length === 1) {
-          data[provider].latest = versions[0];
+          data.providers[provider].latest = versions[0];
         } else if (versions.indexOf('master') !== -1) {
-          data[provider].latest = 'master';
+          data.providers[provider].latest = 'master';
         } else {
           const parsedVersions = versions.map((v) => {
             const match = v.match(/v?([0-9]+)\.([0-9]+)(\.([0-9]+))?/);
@@ -140,13 +142,13 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
             })
             .reverse();
 
-          data[provider].latest = parsedVersions[0].version;
+          data.providers[provider].latest = parsedVersions[0].version;
         }
 
         // 2. create a view of all resources
         for (const version of versions) {
           for (const group of Object.keys(all)) {
-            for (const type of data[provider].versions[version][group]) {
+            for (const type of data.providers[provider].versions[version][group]) {
               all[group][`${provider}_${type}`] = true;
             }
           }
@@ -154,13 +156,13 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
       }
 
       // create a view of all resources
-      data.__views = { all: {} };
+      data.views = { all: {} };
       for (const group of Object.keys(all)) {
-        data.__views.all[group] = Object.keys(all[group]);
+        data.views.all[group] = Object.keys(all[group]);
       }
 
       log(`Created provider autocompletion index for ${providers.length} providers`);
       return data;
-    }))
+    }, jsonSpace))
     .pipe(gulp.dest('out/src/data'));
 }));
