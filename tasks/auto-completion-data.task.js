@@ -9,17 +9,16 @@ const download = require("./download");
 const decompress = require('gulp-decompress');
 const merge = require('gulp-merge-json');
 const transform = require('gulp-json-transform');
-const fs = require('fs');
 
-const jsonSpace = process.argv.indexOf("--beautify-index-data") ? 2 : 0;
+const jsonSpace = process.argv.indexOf("--beautify-index-data") ? 2 : undefined;
 
-gulp.task('get-vim-terraform-completion-data', () => {
+function getVimTerraformCompletionData() {
   const url = 'https://github.com/juliosueiras/vim-terraform-completion/archive/master.zip';
 
   return download(url)
     .pipe(decompress())
     .pipe(gulp.dest("out/tmp/vim-terraform-completion"));
-});
+}
 
 function transformKind(data, path) {
   // this is the existing kinds from the original data:
@@ -54,7 +53,7 @@ function transformKind(data, path) {
   });
 }
 
-gulp.task('copy-provider-data', gulp.series('get-vim-terraform-completion-data', () => {
+function copyProviderData() {
   return gulp.src([
     'out/tmp/vim-terraform-completion/vim-terraform-completion-master/community_provider_json/**/*.json',
     'out/tmp/vim-terraform-completion/vim-terraform-completion-master/provider_json/**/*.json'
@@ -72,9 +71,9 @@ gulp.task('copy-provider-data', gulp.series('get-vim-terraform-completion-data',
       return data;
     }, jsonSpace))
     .pipe(gulp.dest('out/src/data/providers'));
-}));
+}
 
-gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
+function createProviderIndex() {
   return gulp.src('out/src/data/providers/**/*.json')
     .pipe(merge({
       fileName: 'provider-index.json',
@@ -165,4 +164,10 @@ gulp.task('create-provider-index', gulp.series('copy-provider-data', () => {
       return data;
     }, jsonSpace))
     .pipe(gulp.dest('out/src/data'));
-}));
+}
+
+gulp.task('buildAutocompletionData',
+  gulp.series(
+    getVimTerraformCompletionData,
+    copyProviderData,
+    createProviderIndex));
