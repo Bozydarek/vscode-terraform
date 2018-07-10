@@ -11,6 +11,8 @@ const merge = require('gulp-merge-json');
 const transform = require('gulp-json-transform');
 const fs = require('fs');
 
+const jsonSpace = process.argv.indexOf("--beautify-index-data") ? 2 : 0;
+
 gulp.task('get-vim-terraform-completion-data', () => {
   const url = 'https://github.com/juliosueiras/vim-terraform-completion/archive/master.zip';
 
@@ -18,6 +20,39 @@ gulp.task('get-vim-terraform-completion-data', () => {
     .pipe(decompress())
     .pipe(gulp.dest("out/tmp/vim-terraform-completion"));
 });
+
+function transformKind(data, path) {
+  // this is the existing kinds from the original data:
+  const knownKinds = ["Bool", "Bool(O)", "Bool(R)", "Float", "Float(O)", "Float(R)", "Int", "Int(O)", "Int(R)", "List", "List(B)", "List(O)", "List(O)(B)", "List(R)", "List(R)(B)", "Map", "Map(O)", "Map(O)(B)", "Map(R)", "Map(R)(B)", "Map(B)", "Set", "Set(B)", "Set(O)", "Set(O)(B)", "Set(R)", "Set(R)(B)", "String", "String(O)", "String(R)"];
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (typeof value === "object") {
+      transformKind(value, path.concat([key]));
+    } else if (key === "kind") {
+      if (knownKinds.indexOf(value) === -1) {
+        throw new Error(`Invalid kind: ${value} at ${path.join(", ")}`);
+      }
+
+      try {
+        const regex = /([A-Za-z]+)(\([OR]\))?(\(B\))?/;
+        const match = value.match(regex);
+
+        const type = match[1].toLowerCase();
+        const required_or_optional = match[2];
+        const block = match[3];
+
+        data.type = type;
+        data.block = block === "(B)";
+        if (path.indexOf("attributes") === -1) {
+          // nonsensical for attributes
+          data.required = required_or_optional === "(O)";
+        }
+      } catch (e) {
+        throw new Error(`Exception: ${e} at ${path.join(", ")}`);
+      }
+    }
+  });
+}
 
 gulp.task('copy-provider-data', gulp.series('get-vim-terraform-completion-data', () => {
   return gulp.src([
@@ -31,8 +66,11 @@ gulp.task('copy-provider-data', gulp.series('get-vim-terraform-completion-data',
         data.__meta = { type: "provider" };
       }
 
+      // transform 'kind' into type et al
+      transformKind(data, [file.path]);
+
       return data;
-    }))
+    }, jsonSpace))
     .pipe(gulp.dest('out/src/data/providers'));
 }));
 
