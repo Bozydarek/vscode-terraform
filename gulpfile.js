@@ -8,13 +8,13 @@ var path = require('path');
 var log = require('fancy-log');
 var chalk = require('chalk');
 var mocha = require('gulp-mocha');
+var hub = require('gulp-hub');
 
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 
-// load tasks
-require("./tasks/auto-completion-data.task.js");
-require("./tasks/provider-documentation.task.js");
+var registry = new hub(['./tasks/*.task.js']);
+gulp.registry(registry);
 
 // generate hcl wrapper
 gulp.task('generate-hcl-container', (done) => {
