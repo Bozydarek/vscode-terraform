@@ -76,6 +76,19 @@ function loadJsonAs<T>(jsonPath: string): Promise<T> {
   });
 }
 
+export const defaultBasePath = (() => {
+  try {
+    require('vscode');
+
+    // running integration tests
+    return path.join(__dirname, '../data/');
+  } catch (e) {
+
+    // running unit tests
+    return path.join(__dirname, '../../out/src/data');
+  }
+})();
+
 export class CompletionIndex {
   private knownProviders: string[];
 
