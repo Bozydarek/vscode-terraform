@@ -1,6 +1,6 @@
 // The module 'assert' provides assertion methods from node
 import * as assert from 'assert';
-import { AstList, AstValueType, findValue, getMapValue, getStringValue, getText, getValue, getValueType, NodeType, VisitedNode, walk } from '../../src/index/ast';
+import { AstList, AstTokenType, AstValueType, findValue, getMapValue, getStringValue, getText, getTokenAtPosition, getValue, getValueType, NodeType, VisitedNode, walk } from '../../src/index/ast';
 import { parseHcl } from '../../src/index/hcl-hil';
 
 
@@ -149,6 +149,93 @@ suite("Index Tests", () => {
 
                 let list = ast3.Node.Items[0].Val.List as AstList;
                 assert.equal(getValueType(list.Items[0].Val), AstValueType.Map);
+            });
+        });
+
+        suite("getTokenAtPosition", () => {
+            test("string", () => {
+                let [ast, error] = parseHcl(`locals { a = "" }`);
+
+                let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 1, Column: 15 }, "ALL");
+                assert(token);
+                assert.equal(token.Text, '""');
+                assert.equal(token.Type, AstTokenType.STRING);
+                assert.equal(token.Pos.Line, 1);
+                assert.equal(token.Pos.Column, 14);
+            });
+
+            test("boolean", () => {
+                let [ast, error] = parseHcl(`locals { a = true }`);
+
+                let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 1, Column: 15 }, "ALL");
+                assert(token);
+                assert.equal(token.Text, 'true');
+                assert.equal(token.Type, AstTokenType.BOOL);
+                assert.equal(token.Pos.Line, 1);
+                assert.equal(token.Pos.Column, 14);
+            });
+
+            suite("multiline heredoc", () => {
+                test("happy case", () => {
+                    let [ast, error] = parseHcl(`locals {\n  a = <<EOF\nb\nc\nd\nEOF\n }`);
+
+                    let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 3, Column: 1 }, "ALL");
+                    assert(token);
+                    assert.equal(token.Text, '<<EOF\nb\nc\nd\nEOF\n');
+                    assert.equal(token.Type, AstTokenType.HEREDOC);
+                    assert.equal(token.Pos.Line, 2);
+                    assert.equal(token.Pos.Column, 7);
+                });
+
+                test("first line before start column", () => {
+                    let [ast, error] = parseHcl(`locals {\n  a = <<EOF\nb\nc\nd\nEOF\n }`);
+
+                    let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 2, Column: 6 }, "ALL");
+                    assert(!token);
+                });
+
+                test("first line after start column", () => {
+                    let [ast, error] = parseHcl(`locals {\n  a = <<EOF\nb\nc\nd\nEOF\n }`);
+
+                    let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 2, Column: 8 }, "ALL");
+                    assert(!token);
+                });
+
+                test("last line", () => {
+                    let [ast, error] = parseHcl(`locals {\n  a = <<EOF\nb\nc\nd\nEOF\n }`);
+
+                    let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 6, Column: 2 }, "ALL");
+                    assert(!token);
+                });
+
+                test("all lines inside the heredoc", () => {
+                    let [ast, error] = parseHcl(`locals {\n  a = <<EOF\nb\nc\nd\nEOF\n }`);
+
+                    for (const line of [3, 4, 5]) {
+                        let token = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: line, Column: 1 }, "ALL");
+                        assert(token, `expected to find token at line ${line}`);
+                        assert.equal(token.Text, '<<EOF\nb\nc\nd\nEOF\n');
+                        assert.equal(token.Type, AstTokenType.HEREDOC);
+                        assert.equal(token.Pos.Line, 2);
+                        assert.equal(token.Pos.Column, 7);
+                    }
+                });
+            });
+
+            suite("multiline comments", () => {
+                test("single line comment", () => {
+                    let [ast, error] = parseHcl(`# comment 1\n# comment 2`);
+
+                    let token1 = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 1, Column: 1 }, "ALL");
+                    assert(!token1); // currently not supported
+                });
+
+                test("multi line comment", () => {
+                    let [ast, error] = parseHcl(`/* comment 1\n comment 2 */`);
+
+                    let token1 = getTokenAtPosition(ast, { Filename: "", Offset: 0, Line: 1, Column: 1 }, "ALL");
+                    assert(!token1); // currently not supported
+                });
             });
         });
     });

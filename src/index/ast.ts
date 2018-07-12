@@ -1,4 +1,3 @@
-
 export enum NodeType {
     Unknown = "UNKNOWN",
     Node = "NODE",
@@ -52,8 +51,37 @@ export interface AstPosition {
     Column: number;
 }
 
+export enum AstTokenType {
+    ILLEGAL = 0,
+    EOF,
+    COMMENT,
+
+    identifier_begin,
+    IDENT,
+    literal_begin,
+    NUMBER,
+    FLOAT,
+    BOOL,
+    STRING,
+    HEREDOC,
+    literal_end,
+    identifier_end,
+
+    operator_begin,
+    LBRACK, // [
+    LBRACE, // {
+    COMMA,
+    PERIOD,
+    RBRACK, // ]
+    RBRACE, // }
+    ASSIGN,
+    ADD,
+    SUB,
+    operator_end
+}
+
 export interface AstToken {
-    Type: number;
+    Type: AstTokenType;
     Pos: AstPosition;
     Text: string;
     JSON: boolean;
@@ -186,27 +214,40 @@ function count(haystack: string, character: string): number {
     return result;
 }
 
-export function getTokenAtPosition(ast: Ast, pos: AstPosition): AstToken {
+export function getTokenAtPosition(ast: Ast, pos: AstPosition, allowedTypes: "ALL" | AstTokenType[]): AstToken {
     let found: AstToken = null;
     walk(ast, (type: NodeType, node: any, path: VisitedNode[]) => {
         if (node.Token && path.findIndex((n) => n.type === NodeType.Value) !== -1) {
             let token = node.Token as AstToken;
-            if (token.Type === 9) {
-                // string
+            if (allowedTypes !== "ALL" && allowedTypes.indexOf(token.Type) === -1) {
+                return;
+            }
+
+            if (token.Type === AstTokenType.COMMENT) {
+                // multiline tokens
+                const numLines = count(token.Text, '\n');
+                if (pos.Line === token.Pos.Line) {
+                    if (pos.Column >= token.Pos.Column) {
+                        found = token;
+                    }
+                } else if (pos.Line > token.Pos.Line && pos.Line <= (token.Pos.Line + numLines)) {
+                    found = token;
+                }
+            } else if (token.Type === AstTokenType.HEREDOC) {
+                // multiline token, do not include first and last line of token as they include START and END marker
+                const numLines = count(token.Text, '\n') - 1; // -1 because the end of heredoc token includes the newline
+                if (pos.Line > token.Pos.Line && pos.Line < (token.Pos.Line + numLines)) {
+                    found = token;
+                }
+            } else {
+                // single line tokens
                 if (pos.Line !== token.Pos.Line)
                     return;
 
                 if (token.Pos.Column < pos.Column && (token.Pos.Column + token.Text.length) > pos.Column) {
                     found = token;
                 }
-            } else if (token.Type === 10) {
-                // heredoc
-                const numLines = count(token.Text, '\n');
-                if (pos.Line > token.Pos.Line && pos.Line < (token.Pos.Line + numLines)) {
-                    found = token;
-                }
             }
-
         }
     });
     return found;
