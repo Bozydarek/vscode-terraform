@@ -51,6 +51,15 @@ export interface AstPosition {
     Column: number;
 }
 
+export function createPosition(line: number, column: number): AstPosition {
+    return {
+        Filename: "",
+        Offset: 0,
+        Line: line,
+        Column: column
+    };
+}
+
 export enum AstTokenType {
     ILLEGAL = 0,
     EOF,
