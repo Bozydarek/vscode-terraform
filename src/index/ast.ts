@@ -262,9 +262,18 @@ export function splitTokenAtPosition(token: AstToken, pos: AstPosition): [string
 
     return [[...prefix, hitPrefix].join('\n'), [hitSuffix, ...suffix].join('\n')];
 }
+
+function isRequiredNodeTypeInPath(path: VisitedNode[], expected: "ANY" | NodeType.Value): boolean {
+    if (expected === "ANY")
+        return true;
+    return path.findIndex((n) => n.type === expected) !== -1;
+}
+
+export function getTokenAtPosition(ast: Ast, pos: AstPosition, allowedTypes: "ALL" | AstTokenType[], requiredNodeType: "ANY" | NodeType.Value): [AstToken, VisitedNode[]] {
     let found: AstToken = null;
+    let foundPath: VisitedNode[] = null;
     walk(ast, (type: NodeType, node: any, path: VisitedNode[]) => {
-        if (node.Token && path.findIndex((n) => n.type === NodeType.Value) !== -1) {
+        if (node.Token && isRequiredNodeTypeInPath(path, requiredNodeType)) {
             let token = node.Token as AstToken;
             if (allowedTypes !== "ALL" && allowedTypes.indexOf(token.Type) === -1) {
                 return;
@@ -276,15 +285,18 @@ export function splitTokenAtPosition(token: AstToken, pos: AstPosition): [string
                 if (pos.Line === token.Pos.Line) {
                     if (pos.Column >= token.Pos.Column) {
                         found = token;
+                        foundPath = path;
                     }
                 } else if (pos.Line > token.Pos.Line && pos.Line <= (token.Pos.Line + numLines)) {
                     found = token;
+                    foundPath = path;
                 }
             } else if (token.Type === AstTokenType.HEREDOC) {
                 // multiline token, do not include first and last line of token as they include START and END marker
                 const numLines = count(token.Text, '\n') - 1; // -1 because the end of heredoc token includes the newline
                 if (pos.Line > token.Pos.Line && pos.Line < (token.Pos.Line + numLines)) {
                     found = token;
+                    foundPath = path;
                 }
             } else {
                 // single line tokens
@@ -293,9 +305,10 @@ export function splitTokenAtPosition(token: AstToken, pos: AstPosition): [string
 
                 if (token.Pos.Column < pos.Column && (token.Pos.Column + token.Text.length) > pos.Column) {
                     found = token;
+                    foundPath = path;
                 }
             }
         }
     });
-    return found;
+    return [found, foundPath];
 }
