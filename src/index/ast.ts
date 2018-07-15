@@ -237,7 +237,31 @@ function count(haystack: string, character: string): number {
     return result;
 }
 
-export function getTokenAtPosition(ast: Ast, pos: AstPosition, allowedTypes: "ALL" | AstTokenType[]): AstToken {
+export function splitTokenAtPosition(token: AstToken, pos: AstPosition): [string, string] {
+    const lineDiff = pos.Line - token.Pos.Line;
+    const lines = token.Text.split('\n');
+    const lastLine = lines[lines.length - 1];
+    if (lineDiff < 0 || lineDiff > lines.length)
+        return [null, null];
+    if (!lineDiff && pos.Column < token.Pos.Column)
+        return [null, null];
+    if (lineDiff === lines.length - 1 && pos.Column >= token.Pos.Column + lastLine.length)
+        return [null, null];
+
+    // single line token
+    if (lines.length === 1) {
+        const offset = pos.Column - token.Pos.Column;
+        return [token.Text.substr(0, offset), token.Text.substr(offset)];
+    }
+
+    let prefix = lines.slice(0, lineDiff);
+    let suffix = lines.slice(lineDiff + 1);
+
+    let hitPrefix = lines[lineDiff].substr(0, pos.Column - 1);
+    let hitSuffix = lines[lineDiff].substr(pos.Column - 1);
+
+    return [[...prefix, hitPrefix].join('\n'), [hitSuffix, ...suffix].join('\n')];
+}
     let found: AstToken = null;
     walk(ast, (type: NodeType, node: any, path: VisitedNode[]) => {
         if (node.Token && path.findIndex((n) => n.type === NodeType.Value) !== -1) {

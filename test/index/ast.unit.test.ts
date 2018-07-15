@@ -238,5 +238,71 @@ suite("Index Tests", () => {
                 });
             });
         });
+
+        suite("splitTokenAtPosition", () => {
+            test("outside of token before same start line", () => {
+                const token = createToken(AstTokenType.STRING, "Text", 2, 5);
+                const position = createPosition(2, 3);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert(!pre);
+                assert(!suf);
+            });
+
+            test("outside of token after same start line", () => {
+                const token = createToken(AstTokenType.STRING, "Text", 2, 1);
+                const position = createPosition(2, 10);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert(!pre);
+                assert(!suf);
+            });
+
+            test("outside of token after same end line", () => {
+                const token = createToken(AstTokenType.STRING, "Text\nText", 1, 1);
+                const position = createPosition(2, 5);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert(!pre);
+                assert(!suf);
+            });
+
+            test("split single line token", () => {
+                const token = createToken(AstTokenType.STRING, "Text", 1, 1);
+                const position = createPosition(1, 3);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert.equal(pre, "Te");
+                assert.equal(suf, "xt");
+            });
+
+            test("split multiline token first line", () => {
+                const token = createToken(AstTokenType.STRING, "Text\nText", 1, 1);
+                const position = createPosition(1, 3);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert.equal(pre, "Te");
+                assert.equal(suf, "xt\nText");
+            });
+
+            test("split multiline token last line", () => {
+                const token = createToken(AstTokenType.STRING, "Text\nText", 1, 1);
+                const position = createPosition(2, 3);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert.equal(pre, "Text\nTe");
+                assert.equal(suf, "xt");
+            });
+
+            test("split multiline token middle line", () => {
+                const token = createToken(AstTokenType.STRING, "Text\nText\nText", 1, 1);
+                const position = createPosition(2, 3);
+
+                const [pre, suf] = splitTokenAtPosition(token, position);
+                assert.equal(pre, "Text\nTe");
+                assert.equal(suf, "xt\nText");
+            });
+
+        });
     });
 });
