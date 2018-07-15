@@ -87,6 +87,20 @@ export interface AstToken {
     JSON: boolean;
 }
 
+export function createToken(type: AstTokenType, text: string, line: number, column: number): AstToken {
+    return {
+        Type: type,
+        Text: text,
+        JSON: false,
+        Pos: {
+            Filename: "",
+            Offset: 0,
+            Line: line,
+            Column: column
+        }
+    };
+}
+
 export interface AstList {
     Items: AstItem[];
 }
