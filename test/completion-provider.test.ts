@@ -231,5 +231,18 @@ suite("Autocompletion Tests", () => {
             let variables = completions.items.filter((i) => i.label === "var.variable_do_not_show_duplicate_suggestions");
             assert.equal(variables.length, 1);
         });
+
+        test("Autocomplete providers", async () => {
+            let doc = await vscode.workspace.openTextDocument({
+                language: 'terraform',
+                content: 'provider "" "" {}'
+            });
+
+            let successful = await vscode.commands.executeCommand('terraform.index-document', doc.uri) as boolean;
+            assert(successful, "forced indexing not successful");
+
+            let completions = await executeProvider(doc.uri, new vscode.Position(0, 10));
+            assert(completions.items.length > 20, `expected at least 20 providers, but only ${completions.items.length} found`);
+        });
     });
 });

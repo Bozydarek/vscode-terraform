@@ -1,11 +1,12 @@
 import * as _ from "lodash";
 import * as vscode from 'vscode';
 import { backwardsSearch } from '../helpers';
-import { AstPosition, getTokenAtPosition, AstTokenType } from '../index/ast';
+import { AstItem, AstPosition, AstTokenType, getTokenAtPosition, matchPath, NodeType, splitTokenAtPosition } from '../index/ast';
 import { parseHcl } from '../index/hcl-hil';
 import { IndexLocator } from "../index/index-locator";
 import { Section } from "../index/section";
 import { GetKnownFunctions, InterpolationFunctionDefinition } from './builtin-functions';
+import { CompletionData } from "./completion-data";
 import { allProviders, IFieldDef, terraformConfigAutoComplete } from './model';
 import { SectionCompletions } from './section-completions';
 
@@ -15,7 +16,7 @@ const nestedRegexes: RegExp[] = [/\w[A-Za-z0-9\-_]*(\s*){/, /\w[A-Za-z0-9\-_]*(\
 const propertyExp = new RegExp("^([\\w_-]+)$");
 
 export class CompletionProvider implements vscode.CompletionItemProvider {
-  constructor(private indexLocator: IndexLocator) { }
+  constructor(private indexLocator: IndexLocator, private completionData: CompletionData) { }
 
   private sectionToCompletionItem(section: Section, needInterpolation: boolean, range?: vscode.Range): vscode.CompletionItem {
     let item = new vscode.CompletionItem(section.id());
@@ -113,11 +114,45 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
         Offset: 0,
         Filename: ''
       };
-      let token = getTokenAtPosition(ast, pos, [AstTokenType.STRING, AstTokenType.HEREDOC]);
-      if (token) {
-        let interpolationCompletions = this.interpolationCompletions(document, position);
-        if (interpolationCompletions.length !== 0)
-          return interpolationCompletions;
+      let [token, path] = getTokenAtPosition(ast, pos, [AstTokenType.STRING, AstTokenType.HEREDOC], "ANY");
+      if (token && path) {
+        let lastNode = path[path.length - 1];
+        if (matchPath(path, [NodeType.Unknown, NodeType.Node, NodeType.Item])) {
+          // figure out what type of key
+          const item = lastNode.node as AstItem;
+          if (['provider', 'resource', 'data'].indexOf(item.Keys[0].Token.Text) !== -1) {
+            let index = item.Keys.findIndex(k => k.Token === token);
+            if (index === 1) {
+              let [pre, ] = splitTokenAtPosition(token, pos, { stripQuotes: true });
+              if (pre[0] === '"') {
+                pre = pre.substr(1);
+              }
+              return this.completionData.index.providers.filter(p => p.startsWith(pre)).map(p => {
+                return new vscode.CompletionItem(p, vscode.CompletionItemKind.Module);
+              });
+            }
+          }
+
+          return [];
+        }
+
+        if (lastNode.type === "VALUE") {
+          let interpolationCompletions = this.interpolationCompletions(document, position);
+          if (interpolationCompletions.length !== 0)
+            return interpolationCompletions;
+        } else if (lastNode.type === "ITEM") {
+          // figure out what type of key
+          const item = lastNode.node as AstItem;
+          if (['provider', 'resource', 'data'].indexOf(item.Keys[0].Token.Text) !== -1) {
+            let index = item.Keys.findIndex(k => k.Token === token);
+            if (index === 1) {
+              const [pre, ] = splitTokenAtPosition(token, pos);
+              return this.completionData.index.providers.filter(p => p.startsWith(pre)).map(p => {
+                return new vscode.CompletionItem(p, vscode.CompletionItemKind.Module);
+              });
+            }
+          }
+        }
       }
     }
 

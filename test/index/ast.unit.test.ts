@@ -1,6 +1,6 @@
 // The module 'assert' provides assertion methods from node
 import * as assert from 'assert';
-import { AstList, AstTokenType, AstValueType, createPosition, createToken, findValue, getMapValue, getStringValue, getText, getTokenAtPosition, getValue, getValueType, NodeType, splitTokenAtPosition, VisitedNode, walk } from '../../src/index/ast';
+import { AstList, AstTokenType, AstValueType, createPosition, createToken, findValue, getMapValue, getStringValue, getText, getTokenAtPosition, getValue, getValueType, matchPath, NodeType, pathStartsWith, splitTokenAtPosition, VisitedNode, walk } from '../../src/index/ast';
 import { parseHcl } from '../../src/index/hcl-hil';
 
 
@@ -302,7 +302,48 @@ suite("Index Tests", () => {
                 assert.equal(pre, "Text\nTe");
                 assert.equal(suf, "xt\nText");
             });
+        });
 
+        suite("pathStartsWith, pathMatch", () => {
+            function toPath(...p: NodeType[]): VisitedNode[] {
+                return p.map(e => { return { node: null, type: e }; });
+            }
+
+            test("happy case", () => {
+                let path = toPath(NodeType.Unknown, NodeType.Node, NodeType.Item);
+
+                assert(pathStartsWith(path, ["ANY", "ANY", NodeType.Item]));
+            });
+
+            test("match too long", () => {
+                let path = toPath(NodeType.Item);
+
+                assert(!pathStartsWith(path, ["ANY", "ANY", NodeType.Item]));
+            });
+
+            test("mismatch", () => {
+                let path = toPath(NodeType.Unknown, NodeType.Node, NodeType.Item);
+
+                assert(!pathStartsWith(path, [NodeType.Value]));
+            });
+
+            test("match shorter than path", () => {
+                let path = toPath(NodeType.Unknown, NodeType.Node, NodeType.Item);
+
+                assert(pathStartsWith(path, [NodeType.Unknown]));
+            });
+
+            test("matchPath only matches on same length", () => {
+                let path = toPath(NodeType.Unknown, NodeType.Node, NodeType.Item);
+
+                assert(!matchPath(path, [NodeType.Unknown]));
+            });
+
+            test("matchPath matches on same length", () => {
+                let path = toPath(NodeType.Unknown);
+
+                assert(matchPath(path, [NodeType.Unknown]));
+            });
         });
     });
 });

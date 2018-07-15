@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { CompletionData, defaultBasePath } from './autocompletion/completion-data';
 import { CompletionProvider } from './autocompletion/completion-provider';
 import { CodeLensProvider, showReferencesCommand } from './codelense';
 import { getConfiguration } from './configuration';
@@ -28,8 +29,9 @@ const documentSelector: vscode.DocumentSelector = [
 
 export let indexLocator: IndexLocator;
 
-export function activate(ctx: vscode.ExtensionContext) {
+export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
     indexLocator = new IndexLocator(ctx);
+    let completionData = await CompletionData.create(defaultBasePath);
 
     telemetry.activate(ctx);
 
@@ -90,7 +92,7 @@ export function activate(ctx: vscode.ExtensionContext) {
         }),
 
         // providers
-        vscode.languages.registerCompletionItemProvider(documentSelector, new CompletionProvider(indexLocator), '.', '"', '{', '(', '['),
+        vscode.languages.registerCompletionItemProvider(documentSelector, new CompletionProvider(indexLocator, completionData), '.', '"', '{', '(', '['),
         vscode.languages.registerDefinitionProvider(documentSelector, new DefinitionProvider(indexLocator)),
         vscode.languages.registerDocumentSymbolProvider(documentSelector, new DocumentSymbolProvider(indexLocator)),
         vscode.languages.registerWorkspaceSymbolProvider(new WorkspaceSymbolProvider(indexLocator)),
