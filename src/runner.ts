@@ -57,3 +57,9 @@ export function runTerraform(folder: vscode.WorkspaceFolder | string, args: stri
     }
   });
 }
+
+export function findTerraforms(): string[] {
+  const paths = () => {
+    if (process process.env.PATH;
+
+  }
